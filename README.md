@@ -154,7 +154,8 @@ Resultado esperado (pelo menos a primeira linha, que é o `mBaseDisplayInfo`):
 userDisabledHdrTypes [1, 2, 3, 4]
 ```
 
-Se aparecer `[]`, repita o passo 3.3.
+Se aparecer `[]`, repita o passo 3.3. Isso **sempre** acontece depois que a TV reinicia
+(veja [Limitações](#limitações)).
 
 ---
 
@@ -183,8 +184,18 @@ dos itens numa atualização, a navegação pode errar; nesse caso faça o passo
   para o hardware da TV. Com o HDR desativado no Android eles devem escolher SDR, mas se
   algum vídeo ainda aparecer como HDR, abra o menu **Imagem** durante o vídeo, escolha o
   modo HDR **Usuário** e ajuste a luz de fundo para 20% também nesse modo.
-- **Atualização de firmware** da TCL pode desfazer a configuração. Rode `verificar.sh`
-  depois de cada atualização e, se precisar, rode o `aplicar.sh` de novo.
+- **O HDR volta depois que a TV reinicia.** As configurações continuam gravadas
+  (`settings get` mostra `0` e `1,2,3,4`), mas nesta TCL o sistema **não reaplica** a lista
+  no boot: o display volta para `userDisabledHdrTypes []`. Depois de cada reinício completo
+  (falta de luz, tirar da tomada, atualização), rode `verificar.sh` e, se der `ATENÇÃO`,
+  rode o `aplicar.sh` de novo. Colocar a TV em espera pelo controle não apaga a configuração.
+  Animações e apps removidos **não** são afetados pelo reinício.
+- **O IP da TV pode mudar** (o roteador entrega outro por DHCP). Se o `adb connect` falhar,
+  veja o IP novo em Configurações → Rede. Para não acontecer de novo, reserve um IP fixo
+  para a TV no roteador. Se o IP estiver certo e o `ping` responder, mas o adb disser
+  `No route to host`, reinicie o servidor do adb: `adb kill-server && adb start-server`.
+- **Atualização de firmware** da TCL pode mudar a ordem dos menus. Se o `aplicar.sh`
+  parar no meio, faça o passo 3.3 na mão.
 - O menu de **Imagem** da TCL (`com.tcl.settings.PictureActivity`) abre como uma camada
   sobre a tela que o adb não consegue ler. Por isso a luz de fundo precisa ser ajustada
   pelo controle remoto.
