@@ -33,6 +33,8 @@ Manter a luz de fundo **baixa e fixa o tempo todo**, sem nada que a aumente sozi
    aplicar presets `HDR10_BRIGHT` etc. e jogar o brilho no máximo).
 3. **Desligar tudo que aumenta o brilho automaticamente** (contraste dinâmico, dimming,
    sensor de luz, modos "Smart HDR" ou IA).
+4. **Configurar o modo Dolby Vision separado** (passo 4): alguns apps, como o Apple TV,
+   ignoram o ponto 2 e mandam Dolby Vision mesmo assim.
 
 O ponto 2 é o "bypass": na TCL a opção de HDR fica **escondida** e o comando
 `settings put` sozinho **não basta**. Tudo está explicado abaixo.
@@ -156,6 +158,47 @@ userDisabledHdrTypes [1, 2, 3, 4]
 
 Se aparecer `[]`, repita o passo 3.3. Isso **sempre** acontece depois que a TV reinicia
 (veja [Limitações](#limitações)).
+
+---
+
+## Passo 4: configurar o modo Dolby Vision (essencial)
+
+O passo 3 só **avisa** aos apps que a tela não tem HDR. YouTube e Disney+ respeitam,
+mas o **Apple TV ignora**: ele abre direto o decodificador Dolby Vision do chip
+(`OMX.amlogic.dolby-vision.dvhe.decoder...`, visto no `logcat`). Em Dolby Vision a TCL
+usa uma **configuração de imagem separada**, que vem de fábrica como **"Filme brilhante"**,
+e o próprio Dolby Vision passa a controlar a luz de fundo. Os LEDs estouram e a tela fica preta.
+
+Essa configuração **só aparece no menu enquanto um vídeo Dolby Vision está tocando**.
+
+1. Dê play em algo em Dolby Vision (ex.: uma série no app Apple TV).
+   Se a tela ficar preta, continue mesmo assim, porque o menu pode ser lido pelo adb.
+2. Abra o menu de Imagem por cima do vídeo:
+
+   ```bash
+   adb shell am start -a android.settings.DISPLAY_SETTINGS
+   ```
+
+   (ou pelo controle: engrenagem → Imagem)
+3. **Pré-definição de imagens:** `Filme escuro` (as opções são `Filme brilhante` e `Filme escuro`).
+4. **Luz de fundo:** `10` (o padrão do "Filme escuro" é 19).
+5. Volte e dê play. Se a tela continuar preta, o driver de LED travou na proteção:
+   desligue a TV pelo controle, espere 10 s e ligue de novo.
+
+A TV guarda isso para **todos** os vídeos Dolby Vision. Com a tela preta, dá para ler o
+menu como texto (screenshots saem pretos por causa do DRM):
+
+```bash
+adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | grep -oE 'text="[^"]+"'
+```
+
+### O que não funciona (testado)
+
+- **Brilho do Android** (`settings put system screen_brightness`): chega ao driver de luz
+  (`dumpsys lights`), mas o Dolby Vision passa por cima.
+- **Serviço de backlight da TCL** (`tcl_tv_display`, que tem `setBacklight` e
+  `setBacklightConstant`): o SELinux esconde esse serviço do adb. Só funcionaria com root.
+- **Menu de hotel** (`com.tcl.hotelmenu`): fecha ao ser aberto pelo adb.
 
 ---
 
