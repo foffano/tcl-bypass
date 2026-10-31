@@ -35,6 +35,16 @@ Manter a luz de fundo **baixa e fixa o tempo todo**, sem nada que a aumente sozi
    sensor de luz, modos "Smart HDR" ou IA).
 4. **Configurar o modo Dolby Vision separado** (passo 4): alguns apps, como o Apple TV,
    ignoram o ponto 2 e mandam Dolby Vision mesmo assim.
+5. **Instalar o app [TCL Bypass](#app-reaplica-o-bloqueio-de-hdr-sozinho-a-cada-boot)**:
+   o ponto 2 se desfaz a cada reinício da TV, e o app reaplica sozinho no boot.
+
+Resumo do que fica configurado na TV testada:
+
+| Onde | Configuração |
+|---|---|
+| Imagem (conteúdo normal) | Pré-definição `Padrão`, luz de fundo `10`, contraste dinâmico desligado, conversão automática de HDR desligada |
+| Imagem (Dolby Vision) | Pré-definição `Filme escuro`, luz de fundo `10` |
+| Android | HDR desativado (Dolby Vision, HDR10, HLG, HDR10+), reaplicado no boot pelo app |
 
 O ponto 2 é o "bypass": na TCL a opção de HDR fica **escondida** e o comando
 `settings put` sozinho **não basta**. Tudo está explicado abaixo.
@@ -64,7 +74,7 @@ Outros modelos TCL com Android TV 12 ou mais novo devem funcionar igual.
 4. Descubra o IP da TV (Configurações → Rede) e conecte:
 
 ```bash
-adb connect 192.168.1.16:5555
+adb connect IP_DA_TV:5555
 ```
 
 (Na primeira vez a TV mostra um pedido de autorização: aceite.)
@@ -259,9 +269,10 @@ sdkmanager --sdk_root="$HOME/Library/Android/sdk" "platforms;android-34" "build-
 | [`scripts/aplicar.sh`](scripts/aplicar.sh) | Grava as configurações, abre o menu escondido, alterna Automático → Manual pelo adb e verifica |
 | [`scripts/verificar.sh`](scripts/verificar.sh) | Mostra o estado atual das configurações e do display |
 | [`scripts/reverter.sh`](scripts/reverter.sh) | Volta o HDR ao modo Automático (padrão de fábrica) |
+| [`scripts/limpar-apps.sh`](scripts/limpar-apps.sh) | Remove apps de fábrica desnecessários (veja Extras) |
 
 ```bash
-./scripts/aplicar.sh 192.168.1.16:5555
+./scripts/aplicar.sh IP_DA_TV:5555
 ```
 
 O `aplicar.sh` navega pelos menus simulando o controle remoto. Se a TCL mudar a ordem
@@ -279,24 +290,72 @@ dos itens numa atualização, a navegação pode errar; nesse caso faça o passo
   modo HDR **Usuário** e ajuste a luz de fundo para 20% também nesse modo.
 - **O HDR volta depois que a TV reinicia.** As configurações continuam gravadas
   (`settings get` mostra `0` e `1,2,3,4`), mas nesta TCL o sistema **não reaplica** a lista
-  no boot: o display volta para `userDisabledHdrTypes []`. Depois de cada reinício completo
-  (falta de luz, tirar da tomada, atualização), rode `verificar.sh` e, se der `ATENÇÃO`,
-  rode o `aplicar.sh` de novo. Colocar a TV em espera pelo controle não apaga a configuração.
-  Animações e apps removidos **não** são afetados pelo reinício.
+  no boot: o display volta para `userDisabledHdrTypes []`. O **app** resolve isso sozinho.
+  Sem o app, rode `verificar.sh` depois de cada reinício completo (falta de luz, tirar da
+  tomada, atualização) e, se der `ATENÇÃO`, rode o `aplicar.sh`. Colocar a TV em espera
+  pelo controle não apaga a configuração. Os modos de imagem, as animações e os apps
+  removidos **não** são afetados pelo reinício.
+- **O app depende do adb pela rede ligado** nas Opções do desenvolvedor. Se desligar,
+  ele para de funcionar (o status mostra ✘).
 - **O IP da TV pode mudar** (o roteador entrega outro por DHCP). Se o `adb connect` falhar,
   veja o IP novo em Configurações → Rede. Para não acontecer de novo, reserve um IP fixo
   para a TV no roteador. Se o IP estiver certo e o `ping` responder, mas o adb disser
   `No route to host`, reinicie o servidor do adb: `adb kill-server && adb start-server`.
-- **Atualização de firmware** da TCL pode mudar a ordem dos menus. Se o `aplicar.sh`
-  parar no meio, faça o passo 3.3 na mão.
-- O menu de **Imagem** da TCL (`com.tcl.settings.PictureActivity`) abre como uma camada
-  sobre a tela que o adb não consegue ler. Por isso a luz de fundo precisa ser ajustada
-  pelo controle remoto.
+- **Atualização de firmware** da TCL pode mudar os menus. Se o app mostrar ✘ ou o
+  `aplicar.sh` parar no meio, faça o passo 3.3 na mão.
+- **O menu escondido "Tela e som" trava** se o cursor parar em "Resolução" (bug do firmware,
+  `NoSuchMethodError` em `ResolutionSelectionFragment`). O app e o script passam direto por ali.
+- **Screenshots saem pretos** durante vídeo com DRM (Apple TV, Netflix...). Para ler os menus
+  nesse caso, use `uiautomator dump` (veja o passo 4).
+- **Os ajustes de luz de fundo não são automatizados.** O menu de Imagem abre pelo adb
+  (`am start -a android.settings.DISPLAY_SETTINGS`), mas cada modo (normal, Dolby Vision,
+  HDR10) só aparece com aquele tipo de conteúdo tocando. Como esses valores ficam salvos,
+  basta ajustar uma vez.
+
+## Extras: limpeza e desempenho (opcional)
+
+Não tem relação com a luz de fundo, mas deixa a TV (2 GB de RAM) mais leve. Tudo é reversível.
+
+**Remover apps de fábrica** com [`scripts/limpar-apps.sh`](scripts/limpar-apps.sh)
+(`pm uninstall --user 0`: o app sai da TV mas volta com um comando ou com um reset):
+
+| Pacote | O que é |
+|---|---|
+| `com.tcl.channelplus` | TCL Channel (canais grátis com propaganda) |
+| `com.tcl.waterfall.overseas` | Recomendações/propagandas da TCL |
+| `com.tcl.tv.tclhome_passive` | Tela inicial da TCL (a TV usa a do Google TV) |
+| `com.tcl.exhibit` / `com.tcl.esticker` | Modo demonstração e etiqueta de energia de loja |
+| `com.tcl.ocean.instructions` / `com.tcl.repairguide` | Manual digital e guia de reparo |
+| `com.tcl.messagebox` / `com.tcl.usercenter` | Central de mensagens e conta TCL |
+| `com.tcl.logkit` / `com.tcl.gamebar` | Telemetria e Game Bar |
+| `com.tcl.smartalexa` / `com.tcl.magiconnectfree` | Alexa e T-Cast |
+| `com.google.android.play.games` / `com.google.android.youtube.tvmusic` | Play Games e YouTube Music |
+
+```bash
+./scripts/limpar-apps.sh IP_DA_TV:5555
+```
+
+Para trazer um de volta: `adb shell cmd package install-existing <pacote>`.
+
+**Animações mais rápidas e limpar caches:**
+
+```bash
+for k in window_animation_scale transition_animation_scale animator_duration_scale; do adb shell settings put global $k 0.5; done
+```
+
+```bash
+adb shell pm trim-caches 999G
+```
+
+**Pelo controle remoto:** "Modo somente apps" (Configurações → Contas e login → sua conta)
+deixa a tela inicial bem mais leve.
+
+---
 
 ## Desfazer
 
 ```bash
-./scripts/reverter.sh 192.168.1.16:5555
+./scripts/reverter.sh IP_DA_TV:5555
 ```
 
 E volte a luz de fundo e os ajustes de imagem pelo menu da TV.

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Desativa HDR em TVs TCL (Android TV 12+) e força o sistema a aplicar.
-# Uso: ./scripts/aplicar.sh [IP:PORTA]   (padrão: 192.168.1.16:5555)
+# Uso: ./scripts/aplicar.sh [IP:PORTA]   (ex.: 192.168.1.4:5555)
 set -euo pipefail
 
-TV="${1:-192.168.1.16:5555}"
+TV="${1:?uso: $0 IP_DA_TV:5555}"
 A=(adb -s "$TV")
 
 tela_tem() { # retorna 0 se o texto aparece na tela atual

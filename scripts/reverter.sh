@@ -3,7 +3,7 @@
 # Uso: ./scripts/reverter.sh [IP:PORTA]
 set -euo pipefail
 
-TV="${1:-192.168.1.16:5555}"
+TV="${1:?uso: $0 IP_DA_TV:5555}"
 A=(adb -s "$TV")
 adb connect "$TV" >/dev/null
 
