@@ -202,6 +202,56 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | grep
 
 ---
 
+## App: reaplica o bloqueio de HDR sozinho a cada boot
+
+O bloqueio de HDR (passo 3) **se desfaz toda vez que a TV reinicia**. O app
+[`app/tcl-bypass.apk`](app/tcl-bypass.apk) resolve isso sem depender de computador:
+
+- Liga junto com a TV (`BOOT_COMPLETED`), espera 45 s a tela inicial carregar e
+  roda o mesmo procedimento do `aplicar.sh`.
+- Para isso ele se conecta ao **adb da própria TV** (`127.0.0.1:5555`) com um cliente
+  ADB embutido. Assim ele tem as mesmas permissões do adb, sem root.
+- Navega no menu escondido **lendo a tela** (`uiautomator`) e só aperta OK quando o item
+  certo está focado. Passa direto por "Resolução", cuja prévia **derruba** o app de
+  Configurações nesta TCL (`NoSuchMethodError` em `ResolutionSelectionFragment`).
+- Confere `userDisabledHdrTypes [1, 2, 3, 4]` e tenta até 3 vezes.
+- Tem uma tela com o status, o log e um botão **Aplicar agora**.
+
+### Instalar
+
+1. Faça os pré-requisitos (adb pela rede ligado).
+2. Do computador:
+
+   ```bash
+   adb install app/tcl-bypass.apk
+   ```
+
+3. Na TV, abra o app **TCL Bypass** e aperte **Aplicar agora**.
+4. Vai aparecer **"Permitir depuração USB?"** (é o próprio app pedindo acesso ao adb).
+   Marque **Sempre permitir deste computador** e aperte **OK**. Só precisa fazer isso uma vez.
+5. Pronto. A cada boot o status no app deve mostrar ✔.
+
+Testado no TCL G09 (Android 12): após `adb reboot`, o display estava em `[]` e o app
+deixou em `[1, 2, 3, 4]` cerca de 30 s depois da tela inicial aparecer.
+
+### Compilar
+
+Sem Gradle. Precisa de JDK 17 e do Android SDK (`platforms;android-34` e `build-tools;34.0.0`):
+
+```bash
+brew install openjdk@17 && brew install --cask android-commandlinetools
+```
+
+```bash
+sdkmanager --sdk_root="$HOME/Library/Android/sdk" "platforms;android-34" "build-tools;34.0.0"
+```
+
+```bash
+./app/build.sh
+```
+
+---
+
 ## Scripts
 
 | Script | O que faz |
